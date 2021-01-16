@@ -1,8 +1,8 @@
-package homework1
+package homework2
 
 import org.apache.spark.sql.SparkSession
 
-object DataApiHomeWork extends App {
+object DataApiHomeWorkTaxi extends App {
 
   val spark = SparkSession.builder()
     .appName("Joins")
@@ -23,13 +23,10 @@ object DataApiHomeWork extends App {
    *
    * Задание написать код, который будет делать следующее:
    *
-   * 1. DataFrame построить витрину с 10-ю самыми оплачиваемыми должностями в компании. Результат в Parquet.
-   * 2. DataSet построить витрину с сотрудниками зарплата которых выше среднего. Результат в txt файл c пробелами.
-   * 3. RDD рассчитать среднюю зарплату у всех сотрудников за все все время. Результат записать в базу данных Postgres.
+   * 1. DataFrame: Какие районы самые популярные для заказов?
+   * 2. RDD: В какое время происходит больше всего вызовов?
+   * 3. DataSet: Как происходит распределение заказов?
    */
-
-
-
 
 }
 
