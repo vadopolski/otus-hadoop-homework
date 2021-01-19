@@ -15,6 +15,10 @@ object DataApiHomeWorkTaxi extends App {
   val password = "docker"
 
 
+  val taxiFactsDF = spark.read.load("src/main/resources/data/yellow_taxi_jan_25_2018")
+  taxiFactsDF.printSchema()
+  println(taxiFactsDF.count())
+
 
   /**
    * Описание источника:
