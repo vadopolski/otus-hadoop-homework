@@ -10,7 +10,7 @@ object OtusDataFrameDataSet extends App {
     .config("spark.master", "local")
     .getOrCreate()
 
-  case class TaxiZone(LocationID:   String,
+  case class TaxiZone(LocationID:   Long,
                       Borough:      String,
                       Zone:         String,
                       service_zone:  String)

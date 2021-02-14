@@ -1,12 +1,12 @@
 package lesson2
 
+import lesson.OtusDataFrameDataSet.TaxiZone
 import lesson2.OtusMethodsForTest.{processTaxiData, readCSV, readParquet}
 import org.apache.spark.sql.SparkSession
 import org.scalatest.flatspec.AnyFlatSpec
 
 
 class OtusMethodsForTestTest extends AnyFlatSpec {
-
   implicit val spark = SparkSession.builder()
     .config("spark.master", "local")
     .appName("Test №1 for Big Data Application")
@@ -26,4 +26,19 @@ class OtusMethodsForTestTest extends AnyFlatSpec {
     assert(actualDistribution.get(3) == 2.23)
     assert(actualDistribution.get(4) == 66.0)
   }
+
+
+  it should "successfully create a data set with id with long type" in {
+    val taxiZonesDF = readCSV("src/main/resources/data/taxi_zones.csv")
+
+    import spark.implicits._
+
+    val taxiZoneDS = taxiZonesDF.as[TaxiZone]
+      .collectAsList()
+      .get(0)
+
+
+    assert(taxiZoneDS.LocationID.isInstanceOf[Long])
+  }
+
 }
