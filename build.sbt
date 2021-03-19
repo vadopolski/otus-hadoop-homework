@@ -18,14 +18,14 @@ resolvers ++= Seq(
 
 
 libraryDependencies ++= Seq(
-  "org.apache.spark" %% "spark-sql" % sparkVersion % Provided,
+  "org.apache.spark" %% "spark-sql" % sparkVersion,
   "org.apache.spark" %% "spark-sql" % sparkVersion % Test,
   "org.apache.spark" %% "spark-sql" % sparkVersion % Test classifier "tests",
   "org.apache.spark" %% "spark-catalyst" % sparkVersion % Test,
   "org.apache.spark" %% "spark-catalyst" % sparkVersion % Test classifier "tests",
   "org.apache.spark" %% "spark-hive" % sparkVersion % Test,
   "org.apache.spark" %% "spark-hive" % sparkVersion % Test classifier "tests",
-  "org.apache.spark" %% "spark-core" % sparkVersion % Test,
+  "org.apache.spark" %% "spark-core" % sparkVersion,
   "org.apache.spark" %% "spark-core" % sparkVersion % Test classifier "tests",
   // logging
   "org.apache.logging.log4j" % "log4j-api" % "2.4.1",
@@ -48,18 +48,4 @@ libraryDependencies ++= Seq(
   "org.apache.flink" %% "flink-test-utils" % flinkVersion,
   "org.apache.flink" %% "flink-streaming-java" % flinkVersion,
   "org.apache.flink" %% "flink-runtime" % flinkVersion
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 )

@@ -10,30 +10,28 @@ object OtusDataFrameDataSet extends App {
     .config("spark.master", "local")
     .getOrCreate()
 
-  case class TaxiZone(LocationID:   Long,
-                      Borough:      String,
-                      Zone:         String,
-                      service_zone:  String)
+  case class TaxiZoneDF(
+                       LocationID: String,
+                       Borough: String,
+                       Zone: String,
+                       service_zone: String
+                     )
+
 
   val taxiZoneDF = sparkSession.read
     .option("header", "true")
     .csv("src/main/resources/data/taxi_zones.csv")
 
-  taxiZoneDF
-  .filter(upper(col("service_zone")) === col("service_zone"))
-  .groupBy(col("Borough"))
-  .count()
-  .show()
 
   import sparkSession.implicits._
 
-  val taxiZoneDS = taxiZoneDF.as[TaxiZone]
+  val taxiZoneDS = taxiZoneDF.as[TaxiZoneDF]
 
-//  taxiZoneDS
-//    .filter(t => t.service_zone.toUpperCase == t.service_zone)
-//    .filter(upper(col("service_zone")) === col("service_zone"))
-//    .groupBy(col("Borough"))
-//    .count()
-//    .show()
+  taxiZoneDS
+    .filter(tz => tz.service_zone.toUpperCase == tz.service_zone)
+    .filter(upper(col("service_zone")) === col("service_zone"))
+    .groupBy(taxiZoneDF("Borough"))
+    .count()
+    .show()
 
 }
