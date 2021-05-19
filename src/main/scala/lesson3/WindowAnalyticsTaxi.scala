@@ -9,7 +9,6 @@ import org.apache.flink.util.Collector
 
 import scala.concurrent.duration._
 
-
 object WindowAnalyticsTaxi {
 
   def main(args: Array[String]): Unit = {
@@ -17,8 +16,6 @@ object WindowAnalyticsTaxi {
     env.setParallelism(5)
 
     val generator = new TaxiFareGenerator()
-
-    //    val fares = env.addSource(fareSourceOrTest(new TaxiFareGenerator()))
     val fares = env.addSource(generator)
 
     val hourlyTolls = fares
@@ -26,9 +23,9 @@ object WindowAnalyticsTaxi {
       .keyBy(_._1)
       .window(TumblingEventTimeWindows.of(Time.hours(1)))
       .reduce(
-        (f1: (Long, Float), f2: (Long, Float)) => { (f1._1, f1._2 + f2._2) }, new WrapWithWindowInfo()
+        (f1: (Long, Float), f2: (Long, Float)) => { (f1._1, f1._2 + f2._2) },
+        new WrapWithWindowInfo()
       )
-
 
     hourlyTolls.print()
 
@@ -36,13 +33,13 @@ object WindowAnalyticsTaxi {
   }
 
   class WrapWithWindowInfo()
-    extends ProcessWindowFunction[(Long, Float), (Long, Long, Float), Long, TimeWindow] {
+      extends ProcessWindowFunction[(Long, Float), (Long, Long, Float), Long, TimeWindow] {
     override def process(
-                          key: Long,
-                          context: Context,
-                          elements: Iterable[(Long, Float)],
-                          out: Collector[(Long, Long, Float)]
-                        ): Unit = {
+        key: Long,
+        context: Context,
+        elements: Iterable[(Long, Float)],
+        out: Collector[(Long, Long, Float)]
+    ): Unit = {
       val sumOfFares = elements.iterator.next()._2
       out.collect((context.window.getEnd, key, sumOfFares))
     }
