@@ -1,0 +1,1 @@
+docker exec -it cassandra cqlsh -u cassandra -p cassandra

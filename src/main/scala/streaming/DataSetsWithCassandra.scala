@@ -8,9 +8,10 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row, SaveMode, SparkSession}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.{DataStreamWriter, GroupState, GroupStateTimeout, Trigger}
 import org.apache.spark.sql.types.{StringType, StructField, StructType, TimestampType}
+import scala.concurrent.duration.DurationInt
 
 object DataSetsWithCassandra extends App {
-  val parallelism = 4
+  val parallelism = 1
 
   val spark = SparkSession
     .builder()
@@ -26,9 +27,11 @@ object DataSetsWithCassandra extends App {
   )
 
   def readFromKafka(): DataFrame =
+//    spark.read
     spark.readStream
       .format("kafka")
       .option("kafka.bootstrap.servers", "localhost:29092")
+      .option("startingOffsets", "earliest")
       .option("subscribe", "input")
       .load()
 
@@ -55,48 +58,26 @@ object DataSetsWithCassandra extends App {
       .as[String]
       .map(readFromString[ClickRecord](_))
 
-  case class ClickBulkState(pageType: String, count: Int, totalDuration: Int)
-  case class MapResultClickAverage(page: String, averageDuration: Double)
+  val rawInputDF: DataFrame = readFromKafka()
 
-  def updateCountState(
-      key: String,
-      group: Iterator[ClickRecord],
-      state: GroupState[ClickBulkState]
-  ): MapResultClickAverage = {
-    val prevState = if (state.exists) state.get else ClickBulkState(key, 0, 0)
-
-    val totalAggData = group.foldLeft((0, 0)) {
-      case (acc, rec) =>
-        val (count, duration) = acc
-        (count + 1, duration + rec.duration)
-    }
-
-    val (totalCount, totalDuration) = totalAggData
-    val newPostBulk = ClickBulkState(key, prevState.count + totalCount, prevState.totalDuration + totalDuration)
-
-    state.update(newPostBulk)
-    MapResultClickAverage(key, newPostBulk.totalDuration * 1.0 / newPostBulk.count)
-  }
-
-
-  val rawInputDF = readFromKafka()
-
-  val transformedDS = transformToCaseClass(rawInputDF)
-
-  val averageClicksDS: Dataset[MapResultClickAverage] = transformedDS
-    .groupByKey(_.page)
-    .mapGroupsWithState(GroupStateTimeout.NoTimeout())(updateCountState)
+  val transformedDS: Dataset[ClickRecord] = transformToCaseClass(rawInputDF)
 
 
   transformedDS.writeStream
-    .foreachBatch { (batch: Dataset[ClickRecord], _: Long) =>
-      batch
-        .select($"userId", $"page", $"duration", $"timestamp")
-        .write
-        .cassandraFormat("click", "public")
-        .mode(SaveMode.Append)
-        .save()
+      .foreachBatch { (batch: Dataset[ClickRecord], id: Long) =>
+            println(s"Batch is stream = ${batch.isStreaming} id = $id count = ${batch.count()}")
+
+            batch
+              .select($"userId", $"page", $"duration", $"timestamp")
+//              .show(30, false)
+
+              .write
+              .cassandraFormat("click", "public")
+              .mode(SaveMode.Append)
+              .save()
     }
+    .trigger(Trigger.Once())
+//    .trigger(Trigger.ProcessingTime(1.seconds))
     .start()
     .awaitTermination()
 
