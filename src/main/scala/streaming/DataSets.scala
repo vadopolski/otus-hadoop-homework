@@ -32,23 +32,11 @@ object DataSets extends App {
       .option("subscribe", "input")
       .load()
 
-  def transform(in: DataFrame): DataFrame =
-    in
-      .select(expr("cast(value as string) as actualValue"))
-      .select(from_json(col("actualValue"), schema).as("page")) // composite column (struct)
-      .selectExpr("page.timestamp as timestamp", "page.page as page")
-      .select(
-        date_format(to_timestamp(col("timestamp"), "dd-MM-yyyy HH:mm:ss:SSS"), "HH:mm:ss:SSS")
-          .as("time"),
-        col("page")
-      )
-
   case class ClickRecord(timestamp: String, page: String, userId: Long, duration: Int)
   case class ClickBulk(pageType: String, count: Int, totalDuration: Int)
   case class ClickAverage(page: String, averageDuration: Double)
 
   import spark.implicits._
-
   implicit val codec: JsonValueCodec[ClickRecord] = JsonCodecMaker.make[ClickRecord]
 
   def transformToCaseClass(in: DataFrame) =
@@ -78,42 +66,25 @@ object DataSets extends App {
     ClickAverage(postKey, newPostBulk.totalDuration * 1.0 / newPostBulk.count)
   }
 
-  val frame = readFromKafka()
+  val kafkaSourceDF = readFromKafka()
+  val clickRecordDS = transformToCaseClass(kafkaSourceDF)
 
-  val transformed: Dataset[ClickRecord] = transformToCaseClass(frame)
+    println(clickRecordDS.isStreaming)
 
-  val transformed2 = transform(frame)
 
-    println(transformed2.isStreaming)
-
-//    transformed2.writeStream
-//      .trigger(Trigger.ProcessingTime(2.seconds))
-//      .option("checkpointLocation", "src/main/resources/data/checkpoints")
-//      .format("parquet")
-//      .start("src/main/resources/data/out")
-//      .awaitTermination()
-
-//    transformed
-//          .writeStream
-//          .outputMode("update")
-//          .foreachBatch { (batch: Dataset[ClickRecord], _: Long) =>
-//            batch.show()
-//            batch.isStreaming // false
+  clickRecordDS
+          .writeStream
+          .outputMode("update")
+          .foreachBatch { (batch: Dataset[ClickRecord], _: Long) =>
+            batch.show(10, false)
 //            batch.write
-//          }
+          }
 //          .trigger(Trigger.Once())
-//          .start()
-//          .awaitTermination()
-//
-//  transformed
-//      .writeStream
-//      .format("console")
-//      .outputMode("append")
-//      .trigger(Trigger.Once())
-//      .start()
-//      .awaitTermination()
+          .trigger(Trigger.ProcessingTime(2.seconds))
+          .start()
+          .awaitTermination()
 
-  //
+
 //  val averageDS: Dataset[ClickAverage] = transformed
 //    .groupByKey(_.page)
 //    .mapGroupsWithState(GroupStateTimeout.NoTimeout())(updateCountState)
@@ -156,4 +127,14 @@ object DataSets extends App {
    *
    *
    * */
+
+  /**
+      transformed2.writeStream
+        .trigger(Trigger.ProcessingTime(2.seconds))
+        .option("checkpointLocation", "src/main/resources/data/checkpoints")
+        .format("parquet")
+        .start("src/main/resources/data/out")
+        .awaitTermination()
+  */
+
 }
