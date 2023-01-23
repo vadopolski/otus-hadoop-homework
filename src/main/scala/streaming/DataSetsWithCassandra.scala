@@ -54,6 +54,8 @@ object DataSetsWithCassandra extends App {
   transformedDS.writeStream
     .foreachBatch { (batch: Dataset[ClickRecord], _: Long) =>
 
+      println(s" ====== Batch size is ${batch.count()} ===========")
+
       batch
         .show(20, false)
 

@@ -37,15 +37,21 @@ object ReadFromKafka extends App {
 
   def writeDsToConsole(in: Dataset[String]): Unit =
     in.writeStream
-      .format("console")
-      .outputMode("append")
-      .trigger(Trigger.ProcessingTime(2.seconds))
+      .foreachBatch{ (batch: Dataset[String], _: Long) =>
+        println(s"Batch size is ${batch.count()}")
+
+        batch.show(false)
+
+      }
+     .trigger(Trigger.ProcessingTime(2.seconds))
       .start()
       .awaitTermination()
 
   val kafkaDF = readFromKafka()
 
   val transformedDS = transformToCaseClass(kafkaDF)
+
+  transformedDS.printSchema()
 
   writeDsToConsole(transformedDS)
 }

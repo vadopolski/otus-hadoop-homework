@@ -14,6 +14,11 @@ object DataFrame extends App {
     .master("local")
     .getOrCreate()
 
+  spark.readStream.format("rest")
+
+
+
+
   val schema = StructType(
     Array(
       StructField("timestamp", StringType),
