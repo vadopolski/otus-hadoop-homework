@@ -32,17 +32,6 @@ object DataSetsWithCassandra extends App {
       .option("subscribe", "input")
       .load()
 
-  def transform(in: DataFrame): DataFrame =
-    in
-      .select(expr("cast(value as string) as actualValue"))
-      .select(from_json(col("actualValue"), schema).as("page"))
-      .selectExpr("page.timestamp as timestamp", "page.page as page")
-      .select(
-        date_format(to_timestamp(col("timestamp"), "dd-MM-yyyy HH:mm:ss:SSS"), "HH:mm:ss:SSS")
-          .as("time"),
-        col("page")
-      )
-
 
   import spark.implicits._
   implicit val codec: JsonValueCodec[ClickRecord] = JsonCodecMaker.make[ClickRecord]
@@ -55,37 +44,11 @@ object DataSetsWithCassandra extends App {
       .as[String]
       .map(readFromString[ClickRecord](_))
 
-  case class ClickBulkState(pageType: String, count: Int, totalDuration: Int)
-  case class MapResultClickAverage(page: String, averageDuration: Double)
-
-  def updateCountState(
-      key: String,
-      group: Iterator[ClickRecord],
-      state: GroupState[ClickBulkState]
-  ): MapResultClickAverage = {
-    val prevState = if (state.exists) state.get else ClickBulkState(key, 0, 0)
-
-    val totalAggData = group.foldLeft((0, 0)) {
-      case (acc, rec) =>
-        val (count, duration) = acc
-        (count + 1, duration + rec.duration)
-    }
-
-    val (totalCount, totalDuration) = totalAggData
-    val newPostBulk = ClickBulkState(key, prevState.count + totalCount, prevState.totalDuration + totalDuration)
-
-    state.update(newPostBulk)
-    MapResultClickAverage(key, newPostBulk.totalDuration * 1.0 / newPostBulk.count)
-  }
 
 
   val rawInputDF = readFromKafka()
 
   val transformedDS = transformToCaseClass(rawInputDF)
-
-  val averageClicksDS: Dataset[MapResultClickAverage] = transformedDS
-    .groupByKey(_.page)
-    .mapGroupsWithState(GroupStateTimeout.NoTimeout())(updateCountState)
 
 
   transformedDS.writeStream

@@ -18,13 +18,6 @@ object StateFullProcessing extends App {
     .master("local")
     .getOrCreate()
 
-  val schema = StructType(
-    Array(
-      StructField("timestamp", StringType),
-      StructField("page", StringType)
-    )
-  )
-
   def readFromKafka(): DataFrame =
     spark.readStream
       .format("kafka")
@@ -33,9 +26,7 @@ object StateFullProcessing extends App {
       .load()
 
   case class ClickRecord(timestamp: String, page: String, userId: Long, duration: Int)
-
   case class ClickBulk(pageType: String, count: Int, totalDuration: Int)
-
   case class ClickAverage(page: String, averageDuration: Double)
 
   import spark.implicits._
@@ -71,8 +62,6 @@ object StateFullProcessing extends App {
 
   val kafkaSourceDF = readFromKafka()
   val clickRecordDS = transformToCaseClass(kafkaSourceDF)
-
-  println(clickRecordDS.isStreaming)
 
     val averageDS: Dataset[ClickAverage] = clickRecordDS
       .groupByKey(_.page)

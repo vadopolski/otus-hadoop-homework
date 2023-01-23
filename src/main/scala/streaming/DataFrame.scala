@@ -41,16 +41,19 @@ object DataFrame extends App {
 
   val kafkaDF = readFromKafka()
 
+  kafkaDF.printSchema()
+
   val convertedDF = transform(kafkaDF)
 
   println(convertedDF.isStreaming)
 
   convertedDF.writeStream
     .foreachBatch { (batch: DataFrame, _: Long) =>
-      batch.show()
+      batch.show(false)
       println(batch.isStreaming) // false
     }
-    .trigger(Trigger.ProcessingTime(1.seconds))
+    .trigger(Trigger.ProcessingTime(2.seconds))
+//    .trigger(Trigger.Once())
     .start()
     .awaitTermination()
 }

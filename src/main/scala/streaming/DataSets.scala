@@ -2,11 +2,9 @@ package streaming
 
 import com.github.plokhotnyuk.jsoniter_scala.core.{JsonValueCodec, readFromString}
 import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
-import org.apache.spark.sql.functions.{col, expr}
-import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.streaming.{DataStreamWriter, GroupState, GroupStateTimeout, Trigger}
-import org.apache.spark.sql.types.{StringType, StructField, StructType, TimestampType}
+import org.apache.spark.sql.functions.expr
+import org.apache.spark.sql.streaming.Trigger
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 import scala.concurrent.duration.DurationInt
 
@@ -17,13 +15,6 @@ object DataSets extends App {
     .appName("Integrating Kafka")
     .master("local")
     .getOrCreate()
-
-  val schema = StructType(
-    Array(
-      StructField("timestamp", StringType),
-      StructField("page", StringType)
-    )
-  )
 
   def readFromKafka(): DataFrame =
     spark.readStream
@@ -39,102 +30,23 @@ object DataSets extends App {
   import spark.implicits._
   implicit val codec: JsonValueCodec[ClickRecord] = JsonCodecMaker.make[ClickRecord]
 
-  def transformToCaseClass(in: DataFrame) =
+  def transformToCaseClass(in: DataFrame): Dataset[ClickRecord] =
     in
       .select(expr("cast(value as string) as actualValue"))
       .as[String]
       .map(readFromString[ClickRecord](_))
 
-  def updateCountState( // вызывается один раз для каждой группы в микробатче
-                        postKey: String,
-                        group: Iterator[ClickRecord],
-                        state: GroupState[ClickBulk] // не мб null IllegalArgumentException
-                      ): ClickAverage = { // на выходе только одна запись
-    val prevState = if (state.exists) state.get else ClickBulk(postKey, 0, 0)
+  val kafkaSourceDF: DataFrame            = readFromKafka()
+  val clickRecordDS: Dataset[ClickRecord] = transformToCaseClass(kafkaSourceDF)
 
-    val totalAggData = group.foldLeft((0, 0)) {
-      case (acc, rec) =>
-        val (count, duration) = acc
-        (count + 1, duration + rec.duration)
+  println(clickRecordDS.isStreaming)
+
+  clickRecordDS.writeStream
+    .foreachBatch { (batch: Dataset[ClickRecord], _: Long) =>
+      batch.show(10, false)
     }
-
-    val (totalCount, totalDuration) = totalAggData
-    val newPostBulk =
-      ClickBulk(postKey, prevState.count + totalCount, prevState.totalDuration + totalDuration)
-
-    state.update(newPostBulk) // потокобезопасная
-    ClickAverage(postKey, newPostBulk.totalDuration * 1.0 / newPostBulk.count)
-  }
-
-  val kafkaSourceDF = readFromKafka()
-  val clickRecordDS = transformToCaseClass(kafkaSourceDF)
-
-    println(clickRecordDS.isStreaming)
-
-
-  clickRecordDS
-          .writeStream
-          .outputMode("update")
-          .foreachBatch { (batch: Dataset[ClickRecord], _: Long) =>
-            batch.show(10, false)
-//            batch.write
-          }
-//          .trigger(Trigger.Once())
-          .trigger(Trigger.ProcessingTime(2.seconds))
-          .start()
-          .awaitTermination()
-
-
-//  val averageDS: Dataset[ClickAverage] = transformed
-//    .groupByKey(_.page)
-//    .mapGroupsWithState(GroupStateTimeout.NoTimeout())(updateCountState)
-//
-//  averageDS
-//    .writeStream
-//    .outputMode("update")
-//    .foreachBatch { (batch: Dataset[ClickAverage], _: Long) =>
-//      batch.show()
-//    }
-//    .trigger(Trigger.ProcessingTime(1.seconds))
-//    .start()
-//    .awaitTermination()
-
-  /**
-   * Batch1
-   *  +------+------------------+
-   * |  page|   averageDuration|
-   * +------+------------------+
-   * |/about|105.73825503355705|
-   * | /shop| 91.11333333333333|
-   * | /news|102.57046979865771|
-   * |/index| 98.02666666666667|
-   * | /jobs|111.31333333333333|
-   * | /help|101.02013422818791|
-   * +------+------------------+
-   *
-   * Batch2 about + shop + help
-   *  +------+------------------+
-   * |  page|   averageDuration|
-   * +------+------------------+
-   * |/about|105.73825503355705|
-   * | /shop| **** 91.11333333333333|
-   * | /about|*** 102.57046979865771|
-   * |/index| 98.02666666666667|
-   * | /jobs|111.31333333333333|
-   * | /help| *** 101.02013422818791|
-   * +------+------------------+
-   *
-   *
-   *
-   * */
-
-  /**
-      transformed2.writeStream
-        .trigger(Trigger.ProcessingTime(2.seconds))
-        .option("checkpointLocation", "src/main/resources/data/checkpoints")
-        .format("parquet")
-        .start("src/main/resources/data/out")
-        .awaitTermination()
-  */
+    .trigger(Trigger.ProcessingTime(2.seconds))
+    .start()
+    .awaitTermination()
 
 }
