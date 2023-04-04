@@ -3,8 +3,11 @@ package streaming
 import com.github.plokhotnyuk.jsoniter_scala.core.{JsonValueCodec, readFromString}
 import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
 import org.apache.spark.sql.functions.expr
+import org.apache.spark.sql.streaming.{OutputMode, Trigger}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+
+import scala.concurrent.duration.DurationInt
 
 object DataSetWithParquet extends App {
   val parallelism = 4
@@ -41,6 +44,16 @@ object DataSetWithParquet extends App {
   val rawInputDF = readFromKafka()
 
   val transformedDS: Dataset[ClickRecord] = transformToCaseClass(rawInputDF)
+
+  transformedDS.writeStream
+    .format("parquet")
+    .trigger(Trigger.ProcessingTime(2.seconds))
+    .option("path", "src/main/resources/parquet")
+    .option("checkpointLocation", "src/main/resources/checkpoint")
+    .outputMode(OutputMode.Append())
+    .start
+    .awaitTermination()
+
 
   transformedDS
     .writeStream
