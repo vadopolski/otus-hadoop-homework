@@ -12,6 +12,30 @@ object OtusRDD extends App {
 
   val context: SparkContext = spark.sparkContext
 
+/*
+
+1 17 23.02.22
+2 18 24.02.22
+3 24 25.02.22
+
+2 record
+lead lag
+
+
+
+  core1  t1 t2 t3
+  core2  t4 t5 t6
+  core3  t7 t8 ...
+  core4
+  core5
+  core6
+  core4
+  core5
+  core6
+
+*/
+
+
   case class TaxiZone(
                        LocationID: String,
                        Borough: String,

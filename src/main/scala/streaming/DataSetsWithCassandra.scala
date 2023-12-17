@@ -1,5 +1,6 @@
 package streaming
 
+import com.datastax.spark.connector.cql.CassandraConnector
 import com.github.plokhotnyuk.jsoniter_scala.core.{JsonValueCodec, readFromString}
 import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
 import org.apache.spark.sql.cassandra.DataFrameWriterWrapper
@@ -49,6 +50,42 @@ object DataSetsWithCassandra extends App {
   val rawInputDF = readFromKafka()
 
   val transformedDS = transformToCaseClass(rawInputDF)
+
+
+
+   /// 100 fields
+  // 10 field:
+
+
+
+/*
+  transformedDS
+    .repartition(col("key"))
+    .mapPartitions{ iter =>
+      val connector = CassandraConnector(spark.sparkContext.getConf)
+
+      connector.withSessionDo { session =>
+
+        session.execute(
+          s"""
+             |insert into test.test("Name", "Horsepower")
+             |values ('', '') IF NOT EXISTS
+                 """.stripMargin)
+
+
+
+      }
+
+    iter }
+    .writeStream
+    .format("kafka")
+    .option("kafka.bootstrap.servers", "localhost:9092")
+    .option("topic", "rockthejvm")
+    .option("checkpointLocation", "checkpoints") // without checkpoints the writing to Kafka will fail
+    .start()
+    .awaitTermination()
+*/
+
 
 
   transformedDS.writeStream

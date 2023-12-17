@@ -55,14 +55,4 @@ object DataSetWithParquet extends App {
     .awaitTermination()
 
 
-  transformedDS
-    .writeStream
-    .foreachBatch { (batch: Dataset[ClickRecord], _: Long) =>
-
-    batch.show(5, false)
-
-  }
-    .start()
-    .awaitTermination()
-
 }

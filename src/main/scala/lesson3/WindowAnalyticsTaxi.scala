@@ -18,7 +18,7 @@ object WindowAnalyticsTaxi {
     val generator = new TaxiFareGenerator()
     val fares = env.addSource(generator)
 
-    val hourlyTolls = fares
+    val hourlyTolls: DataStream[(Long, Long, Float)] = fares
       .map((f: TaxiFare) => (f.driverId, f.totalFare))
       .keyBy(_._1)
       .window(TumblingEventTimeWindows.of(Time.hours(1)))
@@ -32,8 +32,7 @@ object WindowAnalyticsTaxi {
     env.execute("Hourly Fares")
   }
 
-  class WrapWithWindowInfo()
-      extends ProcessWindowFunction[(Long, Float), (Long, Long, Float), Long, TimeWindow] {
+  class WrapWithWindowInfo() extends ProcessWindowFunction[(Long, Float), (Long, Long, Float), Long, TimeWindow] {
     override def process(
         key: Long,
         context: Context,

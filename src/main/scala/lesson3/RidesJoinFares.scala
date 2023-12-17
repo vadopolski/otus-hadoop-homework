@@ -11,11 +11,11 @@ object RidesJoinFares {
     val env = StreamExecutionEnvironment.getExecutionEnvironment
     env.setParallelism(5)
 
-    val fares = env
+    val fares: KeyedStream[TaxiFare, Long] = env
       .addSource(new TaxiFareGenerator())
       .keyBy( f => f.rideId)
 
-    val rides = env
+    val rides: KeyedStream[TaxiRide, Long] = env
       .addSource(new TaxiRideGenerator())
       .filter(r => r.isStart)
       .keyBy(r => r.rideId)
@@ -24,7 +24,7 @@ object RidesJoinFares {
       .join(fares)
       .where(r => r.rideId)
       .equalTo(f => f.rideId)
-      .window(TumblingEventTimeWindows.of(Time.milliseconds(2)))
+      .window(TumblingEventTimeWindows.of(Time.hours(2)))
       .apply {(r, f) => r + "," + f}
 
     result.print()

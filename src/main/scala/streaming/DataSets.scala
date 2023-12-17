@@ -3,13 +3,12 @@ package streaming
 import com.github.plokhotnyuk.jsoniter_scala.core.{JsonValueCodec, readFromString}
 import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
 import org.apache.spark.sql.functions.expr
-import org.apache.spark.sql.streaming.Trigger
+import org.apache.spark.sql.streaming.{OutputMode, Trigger}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 import scala.concurrent.duration.DurationInt
 
 object DataSets extends App {
-
   val spark = SparkSession
     .builder()
     .appName("Integrating Kafka")
@@ -42,11 +41,12 @@ object DataSets extends App {
   println(clickRecordDS.isStreaming)
 
   clickRecordDS.writeStream
-    .foreachBatch { (batch: Dataset[ClickRecord], _: Long) =>
-      batch.show(10, false)
-    }
+    .format("parquet")
     .trigger(Trigger.ProcessingTime(2.seconds))
-    .start()
+    .option("path", "src/main/resources/parquet")
+    .option("checkpointLocation", "src/main/resources/checkpoint")
+    .outputMode(OutputMode.Append())
+    .start
     .awaitTermination()
 
 }

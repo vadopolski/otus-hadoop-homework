@@ -3,7 +3,7 @@ package streaming
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.Trigger
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 
 import scala.concurrent.duration.DurationInt
 
@@ -14,10 +14,9 @@ object DataFrame extends App {
     .master("local")
     .getOrCreate()
 
-  spark.readStream.format("rest")
+//  spark.readStream.format("rest")
 
-
-
+  spark.streams.addListener(new CustomStreamingListener())
 
   val schema = StructType(
     Array(
@@ -50,14 +49,24 @@ object DataFrame extends App {
 
   val convertedDF = transform(kafkaDF)
 
+  convertedDF.printSchema()
+
   println(convertedDF.isStreaming)
 
-  convertedDF.writeStream
+  val totalNullValues = convertedDF
+    .observe("total_null_values", sum(when(col("page").isNull, lit(1)).otherwise(lit(0))))
+
+
+  totalNullValues.printSchema()
+
+  totalNullValues
+    .writeStream
     .foreachBatch { (batch: DataFrame, _: Long) =>
       batch.show(false)
+      println(batch.count())
       println(batch.isStreaming) // false
     }
-    .trigger(Trigger.ProcessingTime(2.seconds))
+    .trigger(Trigger.ProcessingTime(5.seconds))
 //    .trigger(Trigger.Once())
     .start()
     .awaitTermination()

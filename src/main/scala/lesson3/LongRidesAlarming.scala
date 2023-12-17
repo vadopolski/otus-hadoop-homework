@@ -33,6 +33,8 @@ object LongRidesAlarming {
        context: KeyedProcessFunction[Long, TaxiRide, TaxiRide]#Context,
        out: Collector[TaxiRide]
    ): Unit = {
+      ride.rideId
+
       val previousRideEvent = rideState.value()
 
       if (previousRideEvent == null) {
